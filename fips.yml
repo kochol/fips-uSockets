@@ -1,0 +1,8 @@
+---
+project: fips-uSockets
+imports:
+    fips-libdeflate:
+        git: https://github.com/kochol/fips-libdeflate.git
+exports:
+    modules:
+        uSockets: .
