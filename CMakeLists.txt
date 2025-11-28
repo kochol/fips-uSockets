@@ -14,7 +14,13 @@ fips_setup()
 # Options
 option(USOCKETS_NO_SSL "Build without SSL support" ON)
 option(USOCKETS_USE_OPENSSL "Use OpenSSL for SSL" OFF)
-option(USOCKETS_USE_LIBUV "Use libuv event loop" OFF)
+option(USOCKETS_USE_LIBUV "Use libuv event loop (required on Windows)" OFF)
+
+# On Windows, libuv is required for native eventing
+if (FIPS_WINDOWS AND NOT USOCKETS_USE_LIBUV)
+    message(STATUS "Windows detected - enabling libuv (required for Windows)")
+    set(USOCKETS_USE_LIBUV ON)
+endif()
 
 fips_begin_lib(uSockets)
 
@@ -35,12 +41,6 @@ fips_begin_lib(uSockets)
     fips_dir(src/eventing)
     if (USOCKETS_USE_LIBUV)
         fips_files(libuv.c)
-    elseif (FIPS_MACOS OR FIPS_IOS)
-        fips_files(epoll_kqueue.c)
-    elseif (FIPS_LINUX)
-        fips_files(epoll_kqueue.c)
-    elseif (FIPS_WINDOWS)
-        fips_files(epoll_kqueue.c)
     else()
         fips_files(epoll_kqueue.c)
     endif()
@@ -52,22 +52,22 @@ fips_begin_lib(uSockets)
         sni_tree.cpp
     )
 
-    # Internal headers
-    fips_dir(src/internal)
-    fips_files(
-        internal.h
-        networking/bsd.h
-        eventing/libuv.h
-        eventing/epoll_kqueue.h
-        eventing/gcd.h
-    )
-
 fips_end_lib()
 
 # Include directories
 target_include_directories(uSockets PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# Compiler definitions
+# Compiler definitions for eventing backend
+if (USOCKETS_USE_LIBUV)
+    target_compile_definitions(uSockets PUBLIC LIBUS_USE_LIBUV)
+    fips_deps(libuv)
+elseif (FIPS_LINUX)
+    target_compile_definitions(uSockets PUBLIC LIBUS_USE_EPOLL)
+elseif (FIPS_MACOS OR FIPS_IOS)
+    target_compile_definitions(uSockets PUBLIC LIBUS_USE_KQUEUE)
+endif()
+
+# Compiler definitions for SSL
 if (USOCKETS_NO_SSL)
     target_compile_definitions(uSockets PUBLIC LIBUS_NO_SSL)
 elseif (USOCKETS_USE_OPENSSL)
@@ -76,15 +76,10 @@ elseif (USOCKETS_USE_OPENSSL)
     target_link_libraries(uSockets OpenSSL::SSL OpenSSL::Crypto)
 endif()
 
-if (USOCKETS_USE_LIBUV)
-    target_compile_definitions(uSockets PUBLIC LIBUS_USE_LIBUV)
-    find_package(libuv CONFIG REQUIRED)
-    target_link_libraries(uSockets $<IF:$<TARGET_EXISTS:libuv::uv_a>,libuv::uv_a,libuv::uv>)
-endif()
-
 # Platform-specific settings
 if (FIPS_WINDOWS)
     target_compile_definitions(uSockets PRIVATE WIN32_LEAN_AND_MEAN _CRT_SECURE_NO_WARNINGS)
+    target_link_libraries(uSockets ws2_32)
 endif()
 
 # C11 standard for C files

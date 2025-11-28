@@ -3,6 +3,8 @@ project: fips-uSockets
 imports:
     fips-libdeflate:
         git: https://github.com/kochol/fips-libdeflate.git
+    fips-libuv:
+        git: https://github.com/kochol/fips-libuv.git
 exports:
     modules:
         uSockets: .
