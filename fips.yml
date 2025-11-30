@@ -6,5 +6,7 @@ imports:
     fips-libuv:
         git: https://github.com/kochol/fips-libuv.git
 exports:
+    header-dirs:
+        - src
     modules:
         uSockets: .
